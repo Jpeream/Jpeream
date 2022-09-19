@@ -1,4 +1,4 @@
 - 👋 Hi, I’m Jorge Perea
-- 👀 I’m interested in Finance, music and Data Science
-- 🌱 I’m currently learning Python and Machine Learning
+- 👀 I’m interested in finance, music and data science
+- 🌱 I’m currently learning Python, SQL and iOS Dev
 
