@@ -22,22 +22,44 @@ pip install -r requirements.txt
 ### Usage
 
 ```bash
-# Inline arguments
-python homedepot_scraper.py --skus 123456 789012 --stores 1 2 3 -o prices.csv
-
-# From files
+# Excel output (Store / City / Product / Price + a Details sheet)
 python homedepot_scraper.py \
-    --skus-file skus.example.txt \
-    --stores-file stores.example.txt \
+    --skus-file skus.txt \
+    --stores-file stores.txt \
+    --output prices.xlsx
+
+# CSV output (keeps all fields) — pass any non-.xlsx extension
+python homedepot_scraper.py \
+    --skus-file skus.txt \
+    --stores-file stores.txt \
     --output prices.csv
+
+# Inline arguments
+python homedepot_scraper.py --skus 123456 789012 --stores 1 2 3 -o prices.xlsx
 ```
 
-The CSV output contains one row per (SKU, store) pair with the product name,
-price, list price, currency, seller, availability, and the product URL.
+### Input file formats
+
+`skus.txt` — one SKU per line, optionally `sku,description`:
+
+```
+457420,Cemex cemento Portland 25kg
+754373,Cemex cemento Portland 50kg
+```
+
+`stores.txt` — one store per line as `sales_channel,store_label,city`:
+
+```
+5,Home Depot Monterrey Valle,Monterrey
+7,Home Depot Chihuahua Periferico,Chihuahua
+```
+
+For cities with more than one physical store, add one line per store with
+its own `sales_channel` id.
 
 ### Finding sales channel ids
 
-Open a product page on homedepot.com.mx in your browser's DevTools Network
-tab and look for requests that include `?sc=` in their query string. Switch
-the store on the site and observe which `sc` value changes — that is the
-sales channel id for that store. Add it to `stores.example.txt`.
+Open homedepot.com.mx in your browser's DevTools Network tab and look for
+requests that include `?sc=` in their query string. Switch the store on the
+site and the `sc` value changes — that is the sales-channel id for that
+store. Put it in the first column of `stores.txt`.

@@ -1,0 +1,70 @@
+# Home Depot Mexico stores to query.
+#
+# Format: sales_channel,store_label,city
+#   - sales_channel: the VTEX `sc` id used by homedepot.com.mx when that
+#     specific store is selected on the site. This is what delivers per-store
+#     pricing through the catalog API.
+#   - store_label:   the store name as shown on the site (e.g. "Monterrey Valle").
+#   - city:          the city the store is located in (for the Excel output).
+#
+# --------------------------------------------------------------------------
+# HOW TO FILL IN THE `sc` ID FOR EACH STORE (one-time setup)
+# --------------------------------------------------------------------------
+# 1. Open https://www.homedepot.com.mx/ in Chrome or Firefox.
+# 2. Open DevTools (F12) -> Network tab. Filter by `sc=`.
+# 3. On the site, click the store selector and pick the store you want.
+# 4. Watch the requests: the calls to /api/catalog_system/... will include a
+#    `?sc=<NUMBER>` query parameter. That <NUMBER> is the sales-channel id
+#    for the store you just selected.
+# 5. Replace the `<SC>` placeholder on the matching line below with that id.
+# 6. Repeat for each store.
+#
+# For cities with more than one physical Home Depot, duplicate the city line
+# (one row per store) and fill in each store's own sales-channel id and name.
+# --------------------------------------------------------------------------
+
+# ---- Chihuahua ----
+<SC>,Home Depot Chihuahua,Chihuahua
+<SC>,Home Depot Ciudad Juarez,Ciudad Juarez
+<SC>,Home Depot Delicias,Delicias
+
+# ---- Baja California ----
+<SC>,Home Depot Tijuana,Tijuana
+<SC>,Home Depot Rosarito,Rosarito
+<SC>,Home Depot Mexicali,Mexicali
+<SC>,Home Depot Ensenada,Ensenada
+
+# ---- Baja California Sur ----
+<SC>,Home Depot La Paz,La Paz
+<SC>,Home Depot Los Cabos,Los Cabos
+
+# ---- Coahuila ----
+<SC>,Home Depot Piedras Negras,Piedras Negras
+<SC>,Home Depot Saltillo,Saltillo
+<SC>,Home Depot Monclova,Monclova
+
+# ---- Durango ----
+<SC>,Home Depot Durango,Durango
+<SC>,Home Depot Gomez Palacio,Gomez Palacio
+
+# ---- Nuevo Leon (Monterrey metro) ----
+<SC>,Home Depot Apodaca,Apodaca
+<SC>,Home Depot Monterrey,Monterrey
+<SC>,Home Depot Garcia,Garcia
+<SC>,Home Depot Guadalupe,Guadalupe
+<SC>,Home Depot San Pedro,San Pedro
+<SC>,Home Depot San Nicolas,San Nicolas
+<SC>,Home Depot Escobedo,Escobedo
+<SC>,Home Depot Santa Catarina,Santa Catarina
+
+# ---- Sinaloa ----
+<SC>,Home Depot Culiacan,Culiacan
+<SC>,Home Depot Guasave,Guasave
+<SC>,Home Depot Mazatlan,Mazatlan
+<SC>,Home Depot Los Mochis,Mochis
+
+# ---- Sonora ----
+<SC>,Home Depot Guaymas,Guaymas
+<SC>,Home Depot Hermosillo,Hermosillo
+<SC>,Home Depot Nogales,Nogales
+<SC>,Home Depot Ciudad Obregon,Obregon

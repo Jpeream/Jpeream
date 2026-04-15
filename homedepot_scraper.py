@@ -10,11 +10,13 @@ Each physical store / region is typically mapped to a distinct sales channel.
 Usage:
     python homedepot_scraper.py --skus 123456 789012 --stores 1 2 3
     python homedepot_scraper.py --skus-file skus.txt --stores-file stores.txt \
-        --output prices.csv
+        --output prices.xlsx
 
-SKU file format: one SKU per line.
-Stores file format: one entry per line, either `sales_channel` or
-`sales_channel,label` (label is optional and used for readability).
+SKU file format: one entry per line, either `sku` or `sku,description`.
+Stores file format: one entry per line. Supported forms:
+    sales_channel
+    sales_channel,store_label
+    sales_channel,store_label,city
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass, asdict
@@ -49,8 +52,10 @@ log = logging.getLogger("homedepot_scraper")
 @dataclass
 class PriceResult:
     sku: str
+    sku_description: str
     store: str
     store_label: str
+    city: str
     product_id: str | None
     product_name: str | None
     available: bool
@@ -62,11 +67,21 @@ class PriceResult:
     error: str | None = None
 
     @classmethod
-    def error_row(cls, sku: str, store: str, label: str, msg: str) -> "PriceResult":
+    def error_row(
+        cls,
+        sku: str,
+        sku_description: str,
+        store: str,
+        label: str,
+        city: str,
+        msg: str,
+    ) -> "PriceResult":
         return cls(
             sku=sku,
+            sku_description=sku_description,
             store=store,
             store_label=label,
+            city=city,
             product_id=None,
             product_name=None,
             available=False,
@@ -150,8 +165,10 @@ def extract_price(product: dict, sku: str) -> PriceResult:
     if match is None:
         return PriceResult(
             sku=sku,
+            sku_description="",
             store="",
             store_label="",
+            city="",
             product_id=product_id,
             product_name=product_name,
             available=False,
@@ -176,8 +193,10 @@ def extract_price(product: dict, sku: str) -> PriceResult:
     if offer is None:
         return PriceResult(
             sku=sku,
+            sku_description="",
             store="",
             store_label="",
+            city="",
             product_id=product_id,
             product_name=product_name,
             available=False,
@@ -197,8 +216,10 @@ def extract_price(product: dict, sku: str) -> PriceResult:
 
     return PriceResult(
         sku=sku,
+        sku_description="",
         store="",
         store_label="",
+        city="",
         product_id=product_id,
         product_name=product_name,
         available=available,
@@ -212,29 +233,41 @@ def extract_price(product: dict, sku: str) -> PriceResult:
 
 def scrape(
     client: HomeDepotMXClient,
-    skus: Iterable[str],
-    stores: Iterable[tuple[str, str]],
+    skus: Iterable[tuple[str, str]],
+    stores: Iterable[tuple[str, str, str]],
     delay: float = 0.5,
 ) -> Iterator[PriceResult]:
-    """Yield a PriceResult per (sku, store) combination."""
-    for sku in skus:
-        for sales_channel, label in stores:
-            log.info("Fetching sku=%s store=%s (%s)", sku, sales_channel, label)
+    """Yield a PriceResult per (sku, store) combination.
+
+    `skus` yields `(sku_id, description)` tuples; `stores` yields
+    `(sales_channel, store_label, city)` tuples.
+    """
+    for sku, sku_description in skus:
+        for sales_channel, label, city in stores:
+            log.info(
+                "Fetching sku=%s store=%s (%s, %s)",
+                sku, sales_channel, label, city,
+            )
             try:
                 product = client.lookup_sku(sku, sales_channel)
             except Exception as exc:  # network / parsing blew up after retries
-                yield PriceResult.error_row(sku, sales_channel, label, str(exc))
+                yield PriceResult.error_row(
+                    sku, sku_description, sales_channel, label, city, str(exc),
+                )
                 continue
 
             if product is None:
                 yield PriceResult.error_row(
-                    sku, sales_channel, label, "sku not returned by api",
+                    sku, sku_description, sales_channel, label, city,
+                    "sku not returned by api",
                 )
                 continue
 
             row = extract_price(product, sku)
+            row.sku_description = sku_description
             row.store = sales_channel
             row.store_label = label
+            row.city = city
             yield row
 
             if delay:
@@ -246,14 +279,32 @@ def read_lines(path: str) -> list[str]:
         return [ln.strip() for ln in f if ln.strip() and not ln.lstrip().startswith("#")]
 
 
-def parse_stores(raw: list[str]) -> list[tuple[str, str]]:
+def parse_stores(raw: list[str]) -> list[tuple[str, str, str]]:
+    """Parse store entries into `(sales_channel, label, city)` tuples."""
+    out: list[tuple[str, str, str]] = []
+    for entry in raw:
+        parts = [p.strip() for p in entry.split(",")]
+        if len(parts) == 1:
+            sc = parts[0]
+            out.append((sc, sc, ""))
+        elif len(parts) == 2:
+            sc, label = parts
+            out.append((sc, label, ""))
+        else:
+            sc, label, city = parts[0], parts[1], ",".join(parts[2:]).strip()
+            out.append((sc, label, city))
+    return out
+
+
+def parse_skus(raw: list[str]) -> list[tuple[str, str]]:
+    """Parse SKU entries into `(sku, description)` tuples."""
     out: list[tuple[str, str]] = []
     for entry in raw:
         if "," in entry:
-            sc, label = entry.split(",", 1)
-            out.append((sc.strip(), label.strip()))
+            sku, desc = entry.split(",", 1)
+            out.append((sku.strip(), desc.strip()))
         else:
-            out.append((entry.strip(), entry.strip()))
+            out.append((entry.strip(), ""))
     return out
 
 
@@ -267,6 +318,52 @@ def write_csv(rows: Iterable[PriceResult], path: str) -> int:
             writer.writerow(asdict(row))
             count += 1
     return count
+
+
+def write_xlsx(rows: Iterable[PriceResult], path: str) -> int:
+    """Write results to an Excel workbook with columns Store / City / Product / Price.
+
+    Requires openpyxl. Also includes a second "details" sheet with the full
+    payload (availability, list price, seller, url, errors) for debugging.
+    """
+    try:
+        from openpyxl import Workbook
+    except ImportError as exc:  # pragma: no cover - import error surfaced to user
+        raise RuntimeError(
+            "openpyxl is required for --output *.xlsx; install with "
+            "`pip install openpyxl`"
+        ) from exc
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Prices"
+    ws.append(["Store", "City", "Product", "Price", "Currency"])
+
+    details = wb.create_sheet("Details")
+    detail_fields = list(PriceResult.__dataclass_fields__.keys())
+    details.append(detail_fields)
+
+    count = 0
+    for row in rows:
+        product = row.product_name or row.sku_description or row.sku
+        ws.append([row.store_label, row.city, product, row.price, row.currency])
+        details.append([getattr(row, f) for f in detail_fields])
+        count += 1
+
+    # Modest column widths so the output is readable when opened.
+    widths = {"A": 28, "B": 22, "C": 55, "D": 12, "E": 10}
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+    wb.save(path)
+    return count
+
+
+def write_output(rows: Iterable[PriceResult], path: str) -> int:
+    ext = os.path.splitext(path)[1].lower()
+    if ext in {".xlsx", ".xlsm"}:
+        return write_xlsx(rows, path)
+    return write_csv(rows, path)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -284,7 +381,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--stores-file",
         help="File with one store per line (sales_channel or sales_channel,label)",
     )
-    p.add_argument("--output", "-o", default="prices.csv", help="Output CSV path")
+    p.add_argument(
+        "--output", "-o", default="prices.xlsx",
+        help="Output path. `.xlsx` writes Excel, anything else writes CSV.",
+    )
     p.add_argument("--delay", type=float, default=0.5, help="Seconds between requests")
     p.add_argument("--timeout", type=float, default=20.0, help="HTTP timeout seconds")
     p.add_argument("--max-retries", type=int, default=3)
@@ -300,14 +400,15 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(message)s",
     )
 
-    skus: list[str] = []
+    raw_skus: list[str] = []
     if args.skus:
-        skus.extend(args.skus)
+        raw_skus.extend(args.skus)
     if args.skus_file:
-        skus.extend(read_lines(args.skus_file))
-    if not skus:
+        raw_skus.extend(read_lines(args.skus_file))
+    if not raw_skus:
         print("error: provide --skus or --skus-file", file=sys.stderr)
         return 2
+    skus = parse_skus(raw_skus)
 
     raw_stores: list[str] = []
     if args.stores:
@@ -326,7 +427,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     rows = list(scrape(client, skus, stores, delay=args.delay))
-    n = write_csv(rows, args.output)
+    n = write_output(rows, args.output)
     log.info("Wrote %d rows to %s", n, args.output)
     return 0
 

@@ -1,0 +1,9 @@
+# SKUs to look up at Home Depot Mexico.
+# Format: sku,description
+# The description is used in the Excel output when the API does not return
+# a product name (e.g. if the SKU is not sold in that store's sales channel).
+457420,Cemex cemento Portland 25kg
+754373,Cemex cemento Portland 50kg
+223093,GCC cemento Portland 25kg
+981862,Cemex mortero envasado 25Kg
+223094,GCC mortero envasado 25Kg
