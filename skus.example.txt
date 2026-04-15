@@ -1,0 +1,4 @@
+# One SKU per line. Lines starting with # are ignored.
+# Find the SKU in the product URL or detail page on homedepot.com.mx.
+123456
+789012

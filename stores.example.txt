@@ -1,0 +1,10 @@
+# Home Depot MX store locations map to VTEX "sales channels" (sc).
+# Format:  sales_channel           (label defaults to the id)
+#      or: sales_channel,label     (human-readable label shown in the CSV)
+#
+# The default channel is 1. Other channels correspond to specific stores or
+# regions; inspect the site's network calls (look for ?sc= in requests) to
+# discover the ids that match the stores you care about.
+1,Default
+2,CDMX
+3,Monterrey
